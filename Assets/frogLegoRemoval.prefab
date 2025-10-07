@@ -779,7 +779,7 @@ GameObject:
   - component: {fileID: 114600510579427944}
   - component: {fileID: 114710431247615974}
   m_Layer: 0
-  m_Name: 1x1x1_peg
+  m_Name: 1x1x1-peg
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -884,7 +884,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4115047582914018}
   m_Layer: 0
-  m_Name: 1x1_peg
+  m_Name: 1x1-peg
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1526,7 +1526,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4961048341314100}
   m_Layer: 0
-  m_Name: 1x1_stud
+  m_Name: 1x1-stud
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2346,7 +2346,7 @@ GameObject:
   - component: {fileID: 114671347696336510}
   - component: {fileID: 114763225229425858}
   m_Layer: 0
-  m_Name: 1x1x1_stud
+  m_Name: 1x1x1-stud
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2527,7 +2527,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4183774367579336}
   m_Layer: 0
-  m_Name: 1x1_single
+  m_Name: 1x1-single
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3601,7 +3601,7 @@ GameObject:
   - component: {fileID: 114711695489701394}
   - component: {fileID: 114055934612102386}
   m_Layer: 0
-  m_Name: 1x1x3
+  m_Name: 1x1x3-beam
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4688,7 +4688,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4842777875607868}
   m_Layer: 0
-  m_Name: 1x1x3
+  m_Name: 1x1x3-beam
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5532,7 +5532,7 @@ GameObject:
   - component: {fileID: 114149944035725820}
   - component: {fileID: 114141096432133614}
   m_Layer: 0
-  m_Name: 1x1x1_single
+  m_Name: 1x1x1-single
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

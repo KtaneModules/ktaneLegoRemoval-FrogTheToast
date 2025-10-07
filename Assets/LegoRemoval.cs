@@ -51,9 +51,9 @@ public class LegoRemoval : MonoBehaviour
     List<int> baseOrder; List<int> direction = new List<int>(); GameObject incBrick;
     
     //button
-    int count = 0; float t = 0; int stupidDumb = 0;  int s = 0;
-    Color high = new Color(0f, 0.75f, 0.75f);
-    Color norm1 = Color.clear;   Color bad = Color.red;
+    int count = 0; float t = 0; int s = 0;
+    Color cyan = new Color(0f, 0.75f, 0.75f);
+    Color clear = Color.clear;   Color red = Color.red;
 
     
     private bool buttonPress = false; 
@@ -136,7 +136,6 @@ public class LegoRemoval : MonoBehaviour
                     int rotIndex = (int)Math.Round((double)UnityEngine.Random.Range(0, 4));
                     int rot = rotations[rotIndex];
 
-
                     // generate spot to place brick on
                     int width = (int)Char.GetNumericValue(bricks[size].name[0]) - 1;
                     int length = (int)Char.GetNumericValue(bricks[size].name[2]) - 1;
@@ -166,7 +165,8 @@ public class LegoRemoval : MonoBehaviour
                         Destroy(newBrick);
 
                         layBricks.Add(child.gameObject);
-                        structureBounds.Add(brickId, newCoords);
+                        /*if (size != 0) {*/ structureBounds.Add(brickId, newCoords); //}
+                        //else { structureBounds.Add(brickId, CoordsGen(row - 1, col - 1, 2, 2, 90)); }
 
 
                         if (layer < 10)
@@ -198,6 +198,22 @@ public class LegoRemoval : MonoBehaviour
                         brickId++;
 
                         int colour = UnityEngine.Random.Range(0, 28);
+                        if (size == 2 && layer > 0)
+                        {
+                            int colo = 0;
+                            foreach (var m in structure[layer - 1])
+                            {
+                                if (!m.name.Contains("stud") && Colliding(newCoords, Co(m)))
+                                {
+                                    colo = ColorGet(m.GetComponent<KMSelectable>()); break;
+                                }
+                            }
+                            while (colo == Int32.Parse(colorMats[colour].name))
+                            {
+                                colour = UnityEngine.Random.Range(0, 28);
+                            }    
+                        }
+                        
                         child.GetComponent<MeshRenderer>().material = colorMats[colour];
                         if (colour > 19) { child.GetComponent<MeshRenderer>().material.renderQueue = 3001 + layer; }
                         child.GetComponent<MeshRenderer>().enabled = true;
@@ -221,13 +237,13 @@ public class LegoRemoval : MonoBehaviour
 
         for (int l = 0; l < structure.Count; l++) { // find all selectables
             foreach (GameObject bri in structure[l]) {
-                if (!bri.name.Contains("1x1x3") && !bri.name.Contains("stud")) {
+                if (!bri.name.Contains("beam") && !bri.name.Contains("stud")) {
                     if (l != (structure.Count - 1)) {
                         if (!structure[l + 1].Any(b => Colliding(Co(bri), Co(b)))) {
                             children.Add(bri.GetComponent<KMSelectable>()); } }
                     else { children.Add(bri.GetComponent<KMSelectable>()); } }
 
-                else if (bri.name.Contains("1x1x3")) {
+                else if (bri.name.Contains("beam")) {
                     if (l < (structure.Count - 3)) {
                         if (!structure[l + 3].Any(b => Colliding(Co(bri), Co(b)))) {
                             children.Add(bri.GetComponent<KMSelectable>()); } }
@@ -242,15 +258,8 @@ public class LegoRemoval : MonoBehaviour
         buttonSelect.Parent = theModule;
         buttonSelect.OnInteract += delegate () 
         {
-            foreach (KMSelectable sel in children) {
-                sel.gameObject.GetComponent<MeshRenderer>().material.SetColor("_EmissionColor", Color.clear); }
-
-            if (!buttonPress) {
-                buttonPress = true; }
-            else {
-                //foreach (GameObject sel in foundList) {
-                //    sel.GetComponent<MeshRenderer>().material.SetColor("_EmissionColor", Color.clear); }
-                t = 0; s = 0; /*ri = 0; norm = Color.clear; high = Color.cyan;*/  buttonPress = false; }
+            if (!buttonPress && !badBrick && !moduleSolved) { buttonPress = true; StartCoroutine(PressButton()); }
+            else { buttonPress = false; }
             return false;
         };
 
@@ -266,13 +275,13 @@ public class LegoRemoval : MonoBehaviour
         if (modElemBoxes.Any(elem => Colliding(cur, elem))) { return false; }
 
         if (lay > 0) {
-            if (structure[lay - 1].Any(bri => Colliding(cur, Co(bri)) && bri.name.Contains("1x1x3"))) { return false; }
+            if (structure[lay - 1].Any(bri => Colliding(cur, Co(bri)) && bri.name.Contains("beam"))) { return false; }
 
             if (lay > 1) {
-                if (structure[lay - 2].Any(bri => Colliding(cur, Co(bri)) && bri.name.Contains("1x1x3"))) { return false; }
+                if (structure[lay - 2].Any(bri => Colliding(cur, Co(bri)) && bri.name.Contains("beam"))) { return false; }
 
                 if (lay > 2) {
-                    if (structure[lay - 3].Any(bri => Colliding(cur, Co(bri)) && bri.name.Contains("1x1x3"))) { return false; } } }
+                    if (structure[lay - 3].Any(bri => Colliding(cur, Co(bri)) && bri.name.Contains("beam"))) { return false; } } }
 
             if (structure[lay - 1].Any(bri => Colliding(cur, Co(bri)) && !bri.name.Contains("stud"))) {
                 return true; }
@@ -286,22 +295,27 @@ public class LegoRemoval : MonoBehaviour
     void Start()
     {
         bool colorEx = JsonConvert.DeserializeObject<ModSettingsJSON>(modSettings.Settings).ColorOrderExcluded;
-
         baseOrder = bombInf.GetSerialNumberNumbers().ToList();
         List<char> direc = bombInf.GetSerialNumberLetters().ToList();
 
+        int b113 = ConvertObj(structure).Where(bri => bri.name.Contains("beam")).Count();
+        int b11 = ConvertObj(structure).Where(bri => bri.name.Contains("stud")).Count();
+
         for (int ugh = 0; ugh < baseOrder.Count; ugh++) { // calculate Base Sequence
-            if (!colorEx) { baseOrder[ugh] = (baseOrder[ugh] + ConvertObj(structure).Where(bri => bri.name.Contains("1x1x3")).Count()) % 4; }
-                    else { baseOrder[ugh] = ((baseOrder[ugh] + ConvertObj(structure).Where(bri => bri.name.Contains("1x1x3")).Count()) % 3) + 1; }
+            if (!colorEx) { baseOrder[ugh] = (baseOrder[ugh] + b113) % 4; }
+                    else { baseOrder[ugh] = ((baseOrder[ugh] + b113) % 3) + 1; }
         }
         //Debug.Log("colorEx: " + colorEx);
 
         for (int hhh = 0; hhh < direc.Count; hhh++) { // calculate Direction
-            decimal oh = direc[hhh] - 55; 
-            direction.Add((decimal.ToInt32(oh) + ConvertObj(structure).Where(bri => bri.name.Contains("1x1x1_stud")).Count()) % 2); }
+            decimal oh = direc[hhh] - 55; //Debug.Log(direc[hhh] + ": " + oh + ", " + (oh + 55));
+            direction.Add((decimal.ToInt32(oh) + b11) % 2); }
+        int stupid = 0; string la = "";
         foreach (GameObject bri in structure.Last()) {  // calculate Increment Brick
-            stupidDumb += SizeGet(bri.GetComponent<KMSelectable>()); }
-            incBrick = bricks[stupidDumb % 12]; stupidDumb = 0;
+            stupid += SizeGet(bri.GetComponent<KMSelectable>());
+            la += "," + SizeGet(bri.GetComponent<KMSelectable>());
+        } incBrick = bricks[stupid % 12];
+        la = incBrick.name + ": Sizes" + la + " = " + stupid + "%12 = " + (stupid % 12);
 
         //direction = new List<int> { 0 };
         //baseOrder = new List<int> { 1 };
@@ -309,9 +323,17 @@ public class LegoRemoval : MonoBehaviour
         string b = ""; string d = ""; foreach (int num in baseOrder) { b += num; } foreach (int num in direction) { d += num;  }
         foreach (List<GameObject> dumb in structure) { count += dumb.Count; }
 
+        string l1 = "       (Beams = " + b113 + ")";
+        string l2 = "            (Studs = " + b11 + ")";
+
         Debug.LogFormat("[LEGO Removal #{0}] BrickNum: {1}", moduleId, count);
-        Debug.LogFormat("[LEGO Removal #{0}] Base Sequence: {1}, Direction: {2}", moduleId, b, d);
-        Debug.LogFormat("[LEGO Removal #{0}] Increment Brick: {1}", moduleId, incBrick.name);
+        Debug.LogFormat("[LEGO Removal #{0}] Base Sequence: {1}{2}", moduleId, b, l1);
+        Debug.LogFormat("[LEGO Removal #{0}] Direction: {1}{2}", moduleId, d, l2);
+        Debug.LogFormat("[LEGO Removal #{0}] New Increment Brick: {1}", moduleId, la /*incBrick.name*/);
+
+        Debug.LogFormat("[LEGO Removal #{0}] ", moduleId);
+        DisplaySeq(0);
+
     }
 
     List<GameObject> ConvertObj(List<List<GameObject>> stru)
@@ -321,6 +343,33 @@ public class LegoRemoval : MonoBehaviour
         return con;
     }
  
+    void DisplaySeq(int incer)
+    {
+        string a = " -------------- ";
+        switch (baseOrder[(inc + incer) % baseOrder.Count])
+        {
+            case 0: a += "(0) By Color ID, "; break;
+            case 1: a += "(1) By Size, "; break;
+            case 2: a += "(2) By Support Studs, "; break;
+            case 3: a += "(3) By Layer #, "; break;
+        }
+        switch (direction[(inc + incer) % direction.Count])
+        {
+            case 0: a += "(0) highest first"; break;
+            case 1: a += "(1) lowest first"; break;
+        } a += " -------------- ";
+        Debug.LogFormat("[LEGO Removal #{0}] {1}", moduleId, a);
+    }
+    void DisplayBrick(KMSelectable b, int val)
+    {
+        string a = ""; string d = "";
+        foreach (var c in b.name)
+        {
+            if (c != '_') { a += c; }
+            else { break; }
+        } if (b.name.Contains(incBrick.name)) { d += "  <= Increment Brick"; }
+        Debug.LogFormat("[LEGO Removal #{0}] Brick Removed:    {1} ({2}){3}", moduleId, val, a, d);
+    }
 
     List<List<int>> Co(GameObject ga)
     {
@@ -432,7 +481,7 @@ public class LegoRemoval : MonoBehaviour
                             supCount++; } } } }
         if (lay > 2) {
             foreach (GameObject bri in structure[lay - 3]) {
-                if (bri.name.Contains("1x1x3")) {
+                if (bri.name.Contains("beam")) {
                     foreach (var co1 in Co(b.gameObject)) {
                         foreach (var co2 in Co(bri)) {
                             if (co1[0] == co2[0] && co1[1] == co2[1]) {
@@ -462,126 +511,156 @@ public class LegoRemoval : MonoBehaviour
 
     void PressBrick(KMSelectable theBrick)
     {
-        if (!moduleSolved)
+        if (!moduleSolved && !badBrick)
         {
-            if (!buttonPress)
+            bool valid = false;
+            if (pendingInc) { /*Debug.Log(pendingInc);*/ inc++; pendingInc = false; }
+
+            int baseIdx = baseOrder[inc % baseOrder.Count];
+            int dirIdx = direction[inc % direction.Count];
+            DisplayBrick(theBrick, OrderGet(theBrick, baseIdx));
+
+            var order = children
+                .GroupBy(bri => OrderGet(bri, baseIdx)).ToArray()
+                .OrderBy(grp => grp.Key).ToArray();
+
+            switch (dirIdx)
             {
-
-                bool valid = false;
-                if (pendingInc) { /*Debug.Log(pendingInc);*/ inc++; pendingInc = false; }
-                
-
-                int baseIdx = baseOrder[inc % baseOrder.Count];
-                int dirIdx = direction[inc % direction.Count];
-
-                var order = children
-                    .GroupBy(bri => OrderGet(bri, baseIdx)).ToArray()
-                    .OrderBy(grp => grp.Key).ToArray();
-
-                switch (dirIdx) {
-                    case 1: {
-                            if (order.ElementAtOrDefault(0).Key == OrderGet(theBrick, baseIdx)) { valid = true; }
-                            else {
-                                valid = false;
-                                coValue = order.ElementAtOrDefault(0).Key;
-                                brValue = OrderGet(theBrick, baseIdx); } break; }
-                    case 0: {
-                            if (order.ElementAtOrDefault(order.Count() - 1).Key == OrderGet(theBrick, baseIdx)) { valid = true; }
-                            else {
-                                valid = false;
-                                coValue = order.ElementAtOrDefault(order.Count() - 1).Key;
-                                brValue = OrderGet(theBrick, baseIdx); } break; }
-                }
-
-                switch (valid)
-                {
-                    case true:
+                case 1:
+                    {
+                        if (order.ElementAtOrDefault(0).Key == OrderGet(theBrick, baseIdx)) { valid = true; }
+                        else
                         {
-                            count--; children.RemoveAll(x => x.name == theBrick.name);
+                            valid = false;
+                            coValue = order.ElementAtOrDefault(0).Key;
+                        }
+                        break;
+                    }
+                case 0:
+                    {
+                        if (order.ElementAtOrDefault(order.Count() - 1).Key == OrderGet(theBrick, baseIdx)) { valid = true; }
+                        else
+                        {
+                            valid = false;
+                            coValue = order.ElementAtOrDefault(order.Count() - 1).Key;
+                        }
+                        break;
+                    }
+            }
 
-                            if (theBrick.name.Contains(incBrick.name)) {
-                                pendingInc = true;  
-                                Debug.LogFormat("[LEGO Removal #{0}] ==========> IncBrick Removed! Next Order: {1}, Next Direction: {2} ", 
-                                    moduleId, baseOrder[(inc + 1) % baseOrder.Count], direction[(inc + 1) % direction.Count]);
-                            }
+            switch (valid)
+            {
+                case true:
+                    {
+                        count--; children.RemoveAll(x => x.name == theBrick.name);
 
-                            int lay = LayerGet(theBrick);
-                            var cur = Co(theBrick.gameObject);
-                            List<GameObject> CurLayer = structure[lay]; CurLayer.RemoveAll(b => b.name == theBrick.name);
-                            //Debug.Log("Selected Brick: " + theBrick.name);
+                        if (theBrick.name.Contains(incBrick.name)) { pendingInc = true; DisplaySeq(1); }
+
+                        int lay = LayerGet(theBrick);
+                        var cur = Co(theBrick.gameObject);
+                        List<GameObject> CurLayer = structure[lay]; CurLayer.RemoveAll(b => b.name == theBrick.name);
+                        //Debug.Log("Selected Brick: " + theBrick.name);
 
 
-                            if (lay > 0)
+                        if (lay > 0)
+                        {
+                            //find foundation
+                            var foundation = structure[lay - 1].Where(bri =>
+                               !bri.name.Contains("stud") &&
+                               Colliding(cur, Co(bri)));
+
+                            if (lay > 2)
                             {
-                                //find foundation
-                                var foundation = structure[lay - 1].Where(bri =>
-                                   !bri.name.Contains("stud") &&
-                                   Colliding(cur, Co(bri)));
-
-                                if (lay > 2) {
-                                    var lay3B = structure[lay - 3].Where(bri =>
-                                        bri.name.Contains("1x1x3") &&
-                                        Colliding(cur, Co(bri))) ?? Enumerable.Empty<GameObject>();
-                                    foundation = foundation.Concat(lay3B); }
-
-                                //filter foundation
-                                List<GameObject> checker = new List<GameObject>();
-                                if (CurLayer.Count > 0) {
-                                    foreach (GameObject bri in foundation) {
-                                        if ( !CurLayer.Any(above => Colliding(Co(bri),Co(above)))) {
-                                            checker.Add(bri); } } }
-                                else { checker.AddRange(foundation); }
-
-                                // delegate
-                                if (checker.Count > 0) {
-                                    foreach (GameObject brick in checker) {
-                                        DelegateBrick(brick.GetComponent<KMSelectable>()); children.Add(brick.GetComponent<KMSelectable>());
-                                    } } checker.Clear();
+                                var lay3B = structure[lay - 3].Where(bri =>
+                                    bri.name.Contains("beam") &&
+                                    Colliding(cur, Co(bri))) ?? Enumerable.Empty<GameObject>();
+                                foundation = foundation.Concat(lay3B);
                             }
 
-                            //Debug.LogFormat("[LEGO Removal #{0}] DESTROYING {1}", moduleId, theBrick.name);
-                            //Debug.Log(children.Count);
-
-                            if (children.Count == 0) {
-                                moduleSolved = true;
-                                GetComponent<KMBombModule>().HandlePass();
-                                foreach (MeshRenderer sc in screenMesh) { sc.material = italyMats[2]; }
-
-                                screenText[0].text = "Y";
-                                screenText[1].text = "A";
-                                screenText[2].text = "Y !";
-
-                                children.Add(theBrick); yay = true; Audio.PlaySoundAtTransform(solveAudio.name, theBrick.gameObject.transform);
-                                Debug.LogFormat("[LEGO Removal #{0}] YAY WEE YIPEE YAY WEE YAY WEE YA YIPEE YAY", moduleId);
-                                return;
+                            //filter foundation
+                            List<GameObject> checker = new List<GameObject>();
+                            if (CurLayer.Count > 0)
+                            {
+                                foreach (GameObject bri in foundation)
+                                {
+                                    if (!CurLayer.Any(above => Colliding(Co(bri), Co(above))))
+                                    {
+                                        checker.Add(bri);
+                                    }
+                                }
                             }
+                            else { checker.AddRange(foundation); }
 
-                            if (SupportsGet(theBrick) > 2)
-                                 { Audio.PlaySoundAtTransform(brickAudio[0].name, theBrick.gameObject.transform); }
-                            else { Audio.PlaySoundAtTransform(brickAudio[1].name, theBrick.gameObject.transform); }
+                            // delegate
+                            if (checker.Count > 0)
+                            {
+                                foreach (GameObject brick in checker)
+                                {
+                                    DelegateBrick(brick.GetComponent<KMSelectable>()); children.Add(brick.GetComponent<KMSelectable>());
+                                }
+                            }
+                            checker.Clear();
+                        }
 
-                            Destroy(theBrick.gameObject); children.RemoveAll(item => item == null);
-                            List<KMSelectable> ch = new List<KMSelectable>(); ch.AddRange(children); ch.Add(buttonSelect);
+                        //Debug.LogFormat("[LEGO Removal #{0}] DESTROYING {1}", moduleId, theBrick.name);
+                        //Debug.Log(children.Count);
 
-                            theModule.Children = ch.ToArray();
+                        if (children.Count == 0)
+                        {
+                            moduleSolved = true; buttonPress = false;
+                            GetComponent<KMBombModule>().HandlePass();
+                            foreach (MeshRenderer sc in screenMesh) { sc.material = italyMats[2]; }
+
+                            screenText[0].text = "Y";
+                            screenText[1].text = "A";
+                            screenText[2].text = "Y !";
+
+                            children.Add(theBrick); yay = true; StartCoroutine(PassIndicator());
+                            Audio.PlaySoundAtTransform(solveAudio.name, theBrick.gameObject.transform);
+                            Debug.LogFormat("[LEGO Removal #{0}] YAY WEE YIPEE YAY WEE YAY WEE YA YIPEE YAY", moduleId);
+
+                            theModule.Children = new KMSelectable[0];
                             theModule.UpdateChildrenProperly();
 
-                            break;
+                            return;
                         }
-                    case false:
+
+                        if (SupportsGet(theBrick) > 2)
+                        { Audio.PlaySoundAtTransform(brickAudio[0].name, theBrick.gameObject.transform); }
+                        else { Audio.PlaySoundAtTransform(brickAudio[1].name, theBrick.gameObject.transform); }
+
+                        Destroy(theBrick.gameObject); children.RemoveAll(item => item == null);
+                        List<KMSelectable> ch = new List<KMSelectable>(); ch.AddRange(children); ch.Add(buttonSelect);
+
+                        theModule.Children = ch.ToArray();
+                        theModule.UpdateChildrenProperly();
+
+                        break;
+                    }
+                case false:
+                    {
+                        buttonPress = false;
+
+                        string la = ""; int stupid = 0; var top = new List<GameObject>();
+                        for (int l = structure.Count - 1; l >= 0; l--) { if (structure[l].Count > 0) { top = structure[l]; break; } }
+                        foreach (GameObject bri in top)
                         {
-                            foreach (GameObject bri in structure.Last()) {
-                                stupidDumb += SizeGet(bri.GetComponent<KMSelectable>()); }
-                            incBrick = bricks[stupidDumb % 12]; stupidDumb = 0; inc = 0;
-
-                            Debug.LogFormat("[LEGO Removal #{0}] ==========> HEY! Sequences were reset! <==========", moduleId);
-                            Debug.LogFormat("[LEGO Removal #{0}] CorrectVal: {1}, SelectedBrickVal: {2}", moduleId, coValue, brValue);
-                            Debug.LogFormat("[LEGO Removal #{0}] New Increment Brick: {1}", moduleId, incBrick.name);
-                            badBrick = true; GetComponent<KMBombModule>().HandleStrike(); break;
+                            stupid += SizeGet(bri.GetComponent<KMSelectable>());
+                            la += "," + SizeGet(bri.GetComponent<KMSelectable>());
                         }
-                }
+                        la = bricks[stupid % 12].name + ": Sizes" + la + " = " + stupid + "%12 = " + (stupid % 12);
+                        incBrick = bricks[stupid % 12]; inc = 0;
 
+                        Debug.LogFormat("[LEGO Removal #{0}] !!!!!!!!!!!!!! HEY! Wrong brick! !!!!!!!!!!!!!!", moduleId);
+                        Debug.LogFormat("[LEGO Removal #{0}] Correct Value: {1}", moduleId, coValue);
+                        Debug.LogFormat("[LEGO Removal #{0}] New Increment Brick: {1}", moduleId, la /*incBrick.name*/);
+                        DisplaySeq(0);
+                        badBrick = true; StartCoroutine(StrikeIndicator());
+                        GetComponent<KMBombModule>().HandleStrike(); break;
+                    }
             }
+
+            //}
             /*
             else {
                 string guh = "";
@@ -621,66 +700,72 @@ public class LegoRemoval : MonoBehaviour
     
     IEnumerator PassIndicator()
     {
-        children[0].GetComponent<MeshRenderer>().material.SetColor("_EmissionColor", Color.Lerp(Color.clear, Color.green, t));
-        if (t > .99f) { t = 0f; yay = false;  }
-        else { t += .025f; }
+        t = 0f;
+        while (yay)
+        {
+            children[0].GetComponent<MeshRenderer>().material.SetColor("_EmissionColor", Color.Lerp(Color.clear, Color.green, t));
+            if (t > .99f) { t = 0f; yay = false; }
+            else { t += .025f; }
 
-        yield return new WaitForSeconds(1f);
+            yield return new WaitForSeconds(0.01f);
+        }
     }
     IEnumerator StrikeIndicator()
     {
-        //foreach (TextMesh sc in screenText) { sc.text = "HEY"; }
-
         screenText[0].text = "H";
         screenText[1].text = "E";
         screenText[2].text = "Y !";
 
         foreach (MeshRenderer sc in screenMesh) { sc.material = italyMats[1]; }
+        s = 0; t = 0f;
 
-        foreach (List<GameObject> lis in structure) {
-            foreach (GameObject bri in lis) {
-                bri.gameObject.GetComponent<MeshRenderer>().material.SetColor("_EmissionColor", Color.Lerp(norm1, bad, t)); } }
-
-        if (t > .99f) {
-            t = 0f; s++; Color hugh = norm1; norm1 = bad; bad = hugh;
-            if (s == 2) { s = 0;
-
+        while (badBrick)
+        {
+            if (s == 2) {
+                s = 0;
                 foreach (TextMesh sc in screenText) { sc.text = ""; }
                 foreach (MeshRenderer sc in screenMesh) { sc.material = italyMats[0]; }
-
                 badBrick = false;
-            } }
-        else { t += .033f; }
+            }
 
-        yield return new WaitForSeconds(1f);
+            if (s == 0){
+                foreach (var sel in ConvertObj(structure)){
+                    sel.GetComponent<MeshRenderer>().material.SetColor("_EmissionColor", Color.Lerp(Color.clear, red, t));}}
+
+            else if (s == 1){
+                foreach (var sel in ConvertObj(structure)){
+                    sel.GetComponent<MeshRenderer>().material.SetColor("_EmissionColor", Color.Lerp(red, Color.clear, t));}}
+
+            if (t > .99f) { t = 0f; s++; }
+            else /*if (s < 2)*/ { t += .033f; }
+            /*else { t += .05f; }*/
+
+            yield return new WaitForSeconds(0.01f);
+        }
     }
     IEnumerator PressButton() {
+        while (buttonPress)
+        {
+            if (s == 3) { s = 0; }
 
-        
-        if (s == 3) { s = 0; }
+            if (s == 0){
+                foreach (KMSelectable sel in children){
+                    sel.gameObject.GetComponent<MeshRenderer>().material.SetColor("_EmissionColor", Color.Lerp(Color.clear, cyan, t));}}
 
-        if (s == 0) {
-            foreach (KMSelectable sel in children) {
-                sel.gameObject.GetComponent<MeshRenderer>().material.SetColor("_EmissionColor", Color.Lerp(Color.clear, high, t));
-            } }
-        
-        else if (s == 1) {
-            foreach (KMSelectable sel in children) {
-                sel.gameObject.GetComponent<MeshRenderer>().material.SetColor("_EmissionColor", Color.Lerp(high, Color.clear, t)); } }
+            else if (s == 1){
+                foreach (KMSelectable sel in children){
+                    sel.gameObject.GetComponent<MeshRenderer>().material.SetColor("_EmissionColor", Color.Lerp(cyan, Color.clear, t));}}
 
+            if (t > .99f) { t = 0f; s++; }
+            else /*if (s < 2)*/ { t += .033f; }
+            /*else { t += .05f; }*/
 
-        //Debug.Log(t);
-        if (t > .99f) { t = 0f; s++; }
-        else /*if (s < 2)*/ { t += .033f; }
-        /*else { t += .05f; }*/
+            yield return new WaitForSeconds(0.01f);
+        }
 
-        yield return new WaitForSeconds(1f);
+        t = 0; s = 0;
+        foreach (KMSelectable sel in children) {
+            sel.gameObject.GetComponent<MeshRenderer>().material.SetColor("_EmissionColor", clear); }
     }
 
-    void Update()
-    {
-        if (buttonPress) { StartCoroutine(PressButton()); }
-        if (badBrick) { StartCoroutine(StrikeIndicator()); }
-        if (yay) { StartCoroutine(PassIndicator()); }
-    }
 }

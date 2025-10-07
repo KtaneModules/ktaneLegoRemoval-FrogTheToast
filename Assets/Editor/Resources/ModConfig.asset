@@ -26,11 +26,11 @@ MonoBehaviour:
     it won''t affect the gameplay in any way :)
 
 
-    LEGO Removal 1.0
+    LEGO Removal 1.1
 
     Module ID: frogLegoRemoval
 
     Created by: Frog The Toast (josie)'
   version: 1.0
   outputFolder: D:\SteamLibrary\steamapps\common\Keep Talking and Nobody Explodes\mods
-  previewImage: {fileID: 2800000, guid: 1df3f5bdc64c2a44082b49522d8967db, type: 3}
+  previewImage: {fileID: 2800000, guid: 0d74831b7a479c14a9ee3526f2795c7d, type: 3}
